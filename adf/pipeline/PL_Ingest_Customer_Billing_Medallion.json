@@ -288,6 +288,13 @@
 						"referenceName": "DS_ADLS_Unzip_Folder",
 						"type": "DatasetReference"
 					},
+					"logStorageSettings": {
+						"linkedServiceName": {
+							"referenceName": "LS_STORAGE_ACCOUNT",
+							"type": "LinkedServiceReference"
+						},
+						"path": "customer-billing/Logs"
+					},
 					"enableLogging": true,
 					"storeSettings": {
 						"type": "AzureBlobFSReadSettings",

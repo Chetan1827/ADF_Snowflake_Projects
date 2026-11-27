@@ -1,12 +1,6 @@
 {
 	"name": "adf-customer-billing-dev",
 	"properties": {
-		"globalParameters": {
-			"g_logic_app_webhook_url": {
-				"type": "string",
-				"value": "https://prod-00.centralindia.logic.azure.com:443/workflows/cca0a927e7304581abcd55436a95579d/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=tNAsNaj34NIJi9baePvfV2bAwOJlU1fpFuUgJ8lsiUw"
-			}
-		},
 		"trustModeClaimForMi": {
 			"value": "Disabled",
 			"editable": true,

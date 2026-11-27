@@ -1,5 +1,5 @@
 {
-	"name": "PL_Ingest_Customer_Billing_Medallion",
+	"name": "PL_Ingest_Customer_Billing",
 	"properties": {
 		"activities": [
 			{

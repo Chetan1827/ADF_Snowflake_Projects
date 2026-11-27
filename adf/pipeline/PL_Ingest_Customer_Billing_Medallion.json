@@ -94,8 +94,6 @@
 			{
 				"name": "Data_Load_From_Bronze_To_Silver",
 				"type": "Script",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Load_Data_To_Bronze_Layer",
@@ -133,8 +131,6 @@
 			{
 				"name": "Check_Duplicates",
 				"type": "IfCondition",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Data_Load_From_Bronze_To_Silver",
@@ -180,8 +176,6 @@
 			{
 				"name": "Data_Load_Silver_To_Gold_Layer",
 				"type": "Script",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Check_Duplicates",
@@ -219,8 +213,6 @@
 			{
 				"name": "Archive_Source_Files",
 				"type": "Copy",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Data_Load_Silver_To_Gold_Layer",
@@ -275,8 +267,6 @@
 			{
 				"name": "Clean_Unzip_Folder",
 				"type": "Delete",
-				"state": "Inactive",
-				"onInactiveMarkAs": "Succeeded",
 				"dependsOn": [
 					{
 						"activity": "Data_Load_Silver_To_Gold_Layer",

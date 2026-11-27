@@ -229,7 +229,7 @@
 			]
 		},
 		{
-			"name": "[concat(parameters('factoryName'), '/PL_Ingest_Customer_Billing_Medallion')]",
+			"name": "[concat(parameters('factoryName'), '/PL_Ingest_Customer_Billing')]",
 			"type": "Microsoft.DataFactory/factories/pipelines",
 			"apiVersion": "2018-06-01",
 			"properties": {
@@ -539,6 +539,44 @@
 								"recursive": true,
 								"wildcardFileName": "*",
 								"enablePartitionDiscovery": false
+							}
+						}
+					},
+					{
+						"name": "Send_Success_Email",
+						"type": "WebActivity",
+						"dependsOn": [
+							{
+								"activity": "Archive_Source_Files",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							},
+							{
+								"activity": "Clean_Unzip_Folder",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"method": "POST",
+							"headers": {},
+							"url": {
+								"value": "@pipeline().parameters.p_logic_app_url",
+								"type": "Expression"
+							},
+							"body": {
+								"value": "{\n  \"subject\": \"SUCCESS: Customer Billing Data Processed Successfully (DEV)\",\n  \"message\": \"Data processed successfully for Customer Billing.<br><br><b>Pipeline:</b> @{pipeline().Pipeline}<br><b>Environment Factory:</b> @{pipeline().DataFactory}<br><b>Pipeline Run ID:</b> @{pipeline().RunId}<br><b>Completed At (IST):</b> @{formatDateTime(convertFromUtc(utcNow(), 'India Standard Time'), 'yyyy-MM-dd HH:mm:ss')}<br><br><br>Thanks,<br>Data Engineering Team\"\n}\n",
+								"type": "Expression"
 							}
 						}
 					}

@@ -1,0 +1,41 @@
+{
+  "Microsoft.DataFactory/factories/linkedServices": {
+    "*": {
+      "properties": {
+        "typeProperties": {
+          "baseUrl": "=",
+          "url": "=",
+          "accountName": "=",
+          "database": "=",
+          "warehouse": "=",
+          "role": "=",
+          "userName": "="
+        }
+      }
+    }
+  },
+  "Microsoft.DataFactory/factories/pipelines": {
+    "*": {
+      "properties": {
+        "activities": [
+          {
+            "typeProperties": {
+              "url": "="
+            }
+          },
+          {
+            "typeProperties": {
+              "ifTrueActivities": [
+                {
+                  "typeProperties": {
+                    "url": "="
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

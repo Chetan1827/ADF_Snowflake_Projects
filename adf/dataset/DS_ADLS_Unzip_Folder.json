@@ -1,0 +1,19 @@
+{
+	"name": "DS_ADLS_Unzip_Folder",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "LS_STORAGE_ACCOUNT",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "Binary",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"folderPath": "Unzip",
+				"fileSystem": "customer-billing"
+			}
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

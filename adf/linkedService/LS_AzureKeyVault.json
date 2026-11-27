@@ -1,0 +1,12 @@
+{
+	"name": "LS_AzureKeyVault",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Connects ADF to DEV Key Vault using System-Assigned Managed Identity",
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "https://kv-customer-billing-dev.vault.azure.net/"
+		}
+	}
+}

@@ -1,0 +1,16 @@
+{
+	"name": "adf-customer-billing-dev",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true,
+			"isExplicitlySet": false
+		}
+	},
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "6c9aaa29-c8c5-4544-a6ea-a078b8751997",
+		"tenantId": "e525b226-21a0-49ac-81cf-ef300fdafbbc"
+	}
+}

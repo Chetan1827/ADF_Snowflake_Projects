@@ -1,0 +1,27 @@
+{
+	"name": "LS_Snowflake_Bronze_Layer",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"description": "Snowflake connection scoped to INGEST_ROLE and INGEST_DEV_WH for Bronze loads",
+		"annotations": [],
+		"type": "SnowflakeV2",
+		"typeProperties": {
+			"authenticationType": "Basic",
+			"accountIdentifier": "XNFMVUB-OQ08173",
+			"user": "SA_ADF_CUSTOMER_BILLING_DEV",
+			"database": "CUSTOMER_BILLING_DEV_DB",
+			"warehouse": "INGEST_DEV_WH",
+			"role": "INGEST_ROLE",
+			"password": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "LS_AzureKeyVault",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "sf-service-user-key"
+			},
+			"useUtcTimestamps": false
+		},
+		"version": "1.1"
+	}
+}

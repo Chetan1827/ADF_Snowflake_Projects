@@ -1,0 +1,11 @@
+{
+	"name": "LS_STORAGE_ACCOUNT",
+	"type": "Microsoft.DataFactory/factories/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://sacustomerbillingdev.dfs.core.windows.net/"
+		}
+	}
+}

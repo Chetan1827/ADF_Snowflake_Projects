@@ -1,0 +1,308 @@
+{
+	"name": "PL_Ingest_Customer_Billing_Medallion",
+	"properties": {
+		"activities": [
+			{
+				"name": "Unzip_Inbound_Archive",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "BinarySource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": "Inbound",
+							"wildcardFileName": "*.zip",
+							"deleteFilesAfterCompletion": false
+						},
+						"formatSettings": {
+							"type": "BinaryReadSettings",
+							"compressionProperties": {
+								"type": "ZipDeflateReadSettings",
+								"preserveZipFileNameAsFolder": false
+							}
+						}
+					},
+					"sink": {
+						"type": "BinarySink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings",
+							"copyBehavior": "PreserveHierarchy"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_ADLS_Inbound_Zip",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_Unzip_Folder",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Load_Data_To_Bronze_Layer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Unzip_Inbound_Archive",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "LS_Snowflake_Bronze_Layer",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "CALL BRONZE.SP_LOAD_AND_VERIFY_BRONZE('@{pipeline().RunId}');",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00",
+					"treatDecimalAsString": false
+				}
+			},
+			{
+				"name": "Data_Load_From_Bronze_To_Silver",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Load_Data_To_Bronze_Layer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "LS_Snowflake_Silver_Gold_Layer",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "CALL SILVER.SP_PROCESS_SILVER_BATCH('@{pipeline().RunId}');",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00",
+					"treatDecimalAsString": false
+				}
+			},
+			{
+				"name": "Check_Duplicates",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "Data_Load_From_Bronze_To_Silver",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(int(json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found), 0)",
+						"type": "Expression"
+					},
+					"ifTrueActivities": [
+						{
+							"name": "Send_Duplicate_Records_Alert_Email",
+							"type": "WebActivity",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"method": "POST",
+								"url": "https://prod-00.centralindia.logic.azure.com:443/workflows/cca0a927e7304581abcd55436a95579d/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=tNAsNaj34NIJi9baePvfV2bAwOJlU1fpFuUgJ8lsiUw",
+								"body": {
+									"subject": "Alert: Duplicate Records Quarantined in Silver (Customer Billing DEV)",
+									"message": "Pipeline Run ID @{pipeline().RunId} detected @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found} duplicate record(s). Please inspect SILVER.DUPLICATE_RECORDS_LOG in Snowflake."
+								}
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Data_Load_Silver_To_Gold_Layer",
+				"type": "Script",
+				"dependsOn": [
+					{
+						"activity": "Check_Duplicates",
+						"dependencyConditions": [
+							"Completed"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"linkedServiceName": {
+					"referenceName": "LS_Snowflake_Silver_Gold_Layer",
+					"type": "LinkedServiceReference"
+				},
+				"typeProperties": {
+					"scripts": [
+						{
+							"type": "Query",
+							"text": {
+								"value": "CALL GOLD.SP_BUILD_GOLD_STAR_SCHEMA('@{pipeline().RunId}');",
+								"type": "Expression"
+							}
+						}
+					],
+					"scriptBlockExecutionTimeout": "02:00:00",
+					"treatDecimalAsString": false
+				}
+			},
+			{
+				"name": "Archive_Source_Files",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Data_Load_Silver_To_Gold_Layer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "BinarySource",
+						"storeSettings": {
+							"type": "AzureBlobFSReadSettings",
+							"recursive": true,
+							"wildcardFolderPath": "Inbound",
+							"wildcardFileName": "*",
+							"deleteFilesAfterCompletion": true
+						},
+						"formatSettings": {
+							"type": "BinaryReadSettings"
+						}
+					},
+					"sink": {
+						"type": "BinarySink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						}
+					},
+					"enableStaging": false
+				},
+				"inputs": [
+					{
+						"referenceName": "DS_ADLS_Inbound_Source_Zip",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DS_ADLS_Archive_Folder",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Clean_Unzip_Folder",
+				"type": "Delete",
+				"dependsOn": [
+					{
+						"activity": "Data_Load_Silver_To_Gold_Layer",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DS_ADLS_Unzip_Folder",
+						"type": "DatasetReference"
+					},
+					"logStorageSettings": {
+						"linkedServiceName": {
+							"referenceName": "LS_STORAGE_ACCOUNT",
+							"type": "LinkedServiceReference"
+						}
+					},
+					"enableLogging": true,
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"wildcardFileName": "*",
+						"enablePartitionDiscovery": false
+					}
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-11-27T07:30:22Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

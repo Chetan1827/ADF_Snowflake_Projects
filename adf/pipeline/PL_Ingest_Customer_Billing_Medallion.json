@@ -165,8 +165,8 @@
 									"type": "Expression"
 								},
 								"body": {
-									"subject": "Alert: @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets.rows.SP_PROCESS_SILVER_BATCH).duplicates_found} Duplicate Record(s) Detected in Run @{pipeline().RunId}",
-									"message": "Pipeline Run ID @{pipeline().RunId} detected @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets.rows.SP_PROCESS_SILVER_BATCH).duplicates_found} duplicate record(s) in the current batch.\n\nTo inspect the quarantined records for this run only, execute in Snowflake:\nSELECT * FROM SILVER.DUPLICATE_RECORDS_LOG WHERE PIPELINE_RUN_ID = '@{pipeline().RunId}';"
+									"subject": "Alert: @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found} Duplicate Record(s) Detected in Run @{pipeline().RunId}",
+									"message": "Pipeline Run ID @{pipeline().RunId} detected @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found} duplicate record(s) in the current batch.\n\nTo inspect the quarantined records for this run only, execute in Snowflake:\nSELECT * FROM SILVER.DUPLICATE_RECORDS_LOG WHERE PIPELINE_RUN_ID = '@{pipeline().RunId}';"
 								}
 							}
 						}

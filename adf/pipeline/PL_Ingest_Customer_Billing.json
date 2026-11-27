@@ -336,7 +336,7 @@
 						"type": "Expression"
 					},
 					"body": {
-						"value": "{\n  \"subject\": \"SUCCESS: Customer Billing Data Processed Successfully (@{pipeline().DataFactory})\",\n  \"message\": \"Data processed successfully for Customer Billing.<br><br><b>Pipeline:</b> @{pipeline().Pipeline}<br><b>Environment Factory:</b> @{pipeline().DataFactory}<br><b>Pipeline Run ID:</b> @{pipeline().RunId}<br><b>Completed At (IST):</b> @{formatDateTime(convertFromUtc(utcNow(), 'India Standard Time'), 'yyyy-MM-dd HH:mm:ss')}<br><br><br>Thanks,<br>Data Engineering Team\"\n}\n",
+						"value": "{\n  \"subject\": \"SUCCESS: Customer Billing Data Processed Successfully (DEV)\",\n  \"message\": \"Data processed successfully for Customer Billing.<br><br><b>Pipeline:</b> @{pipeline().Pipeline}<br><b>Environment Factory:</b> @{pipeline().DataFactory}<br><b>Pipeline Run ID:</b> @{pipeline().RunId}<br><b>Completed At (IST):</b> @{formatDateTime(convertFromUtc(utcNow(), 'India Standard Time'), 'yyyy-MM-dd HH:mm:ss')}<br><br><br>Thanks,<br>Data Engineering Team\"\n}\n",
 						"type": "Expression"
 					}
 				}

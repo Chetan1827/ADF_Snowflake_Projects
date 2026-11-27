@@ -20,11 +20,7 @@
         "activities": [
           {
             "typeProperties": {
-              "url": "="
-            }
-          },
-          {
-            "typeProperties": {
+              "url": "=",
               "ifTrueActivities": [
                 {
                   "typeProperties": {

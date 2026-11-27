@@ -1,0 +1,39 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"value": "adf-customer-billing-dev"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"value": "https://kv-customer-billing-dev.vault.azure.net/"
+		},
+		"LS_STORAGE_ACCOUNT_properties_typeProperties_url": {
+			"value": "https://sacustomerbillingdev.dfs.core.windows.net/"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_database": {
+			"value": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse": {
+			"value": "INGEST_DEV_WH"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_role": {
+			"value": "INGEST_ROLE"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database": {
+			"value": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse": {
+			"value": "TRANSFORM_DEV_WH"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role": {
+			"value": "TRANSFORM_ROLE"
+		},
+		"containerUri": {
+			"value": ""
+		},
+		"containerSasToken": {
+			"value": ""
+		}
+	}
+}

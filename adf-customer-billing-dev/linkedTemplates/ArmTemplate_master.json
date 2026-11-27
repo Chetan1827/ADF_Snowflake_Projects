@@ -1,0 +1,98 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-customer-billing-dev"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-customer-billing-dev.vault.azure.net/"
+		},
+		"LS_STORAGE_ACCOUNT_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://sacustomerbillingdev.dfs.core.windows.net/"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse": {
+			"type": "string",
+			"defaultValue": "INGEST_DEV_WH"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "INGEST_ROLE"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse": {
+			"type": "string",
+			"defaultValue": "TRANSFORM_DEV_WH"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "TRANSFORM_ROLE"
+		},
+		"containerUri": {
+			"type": "string",
+			"metadata": "URI to storage account containing linked ARM templates"
+		},
+		"containerSasToken": {
+			"type": "string",
+			"metadata": "Sas token to storage account containing linked ARM templates"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "adf-customer-billing-dev_ArmTemplate_0",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2024-03-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_0.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					},
+					"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+						"value": "[parameters('LS_AzureKeyVault_properties_typeProperties_baseUrl')]"
+					},
+					"LS_STORAGE_ACCOUNT_properties_typeProperties_url": {
+						"value": "[parameters('LS_STORAGE_ACCOUNT_properties_typeProperties_url')]"
+					},
+					"LS_Snowflake_Bronze_Layer_properties_typeProperties_database": {
+						"value": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_database')]"
+					},
+					"LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse": {
+						"value": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse')]"
+					},
+					"LS_Snowflake_Bronze_Layer_properties_typeProperties_role": {
+						"value": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_role')]"
+					},
+					"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database": {
+						"value": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database')]"
+					},
+					"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse": {
+						"value": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse')]"
+					},
+					"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role": {
+						"value": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role')]"
+					}
+				}
+			},
+			"dependsOn": []
+		}
+	]
+}

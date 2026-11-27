@@ -1,0 +1,559 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "adf-customer-billing-dev"
+		},
+		"LS_AzureKeyVault_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://kv-customer-billing-dev.vault.azure.net/"
+		},
+		"LS_STORAGE_ACCOUNT_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://sacustomerbillingdev.dfs.core.windows.net/"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse": {
+			"type": "string",
+			"defaultValue": "INGEST_DEV_WH"
+		},
+		"LS_Snowflake_Bronze_Layer_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "INGEST_ROLE"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database": {
+			"type": "string",
+			"defaultValue": "CUSTOMER_BILLING_DEV_DB"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse": {
+			"type": "string",
+			"defaultValue": "TRANSFORM_DEV_WH"
+		},
+		"LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role": {
+			"type": "string",
+			"defaultValue": "TRANSFORM_ROLE"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_Ingest_Customer_Billing_Medallion')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Unzip_Inbound_Archive",
+						"type": "Copy",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": "Inbound",
+									"wildcardFileName": "*.zip",
+									"deleteFilesAfterCompletion": false
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings",
+									"compressionProperties": {
+										"type": "ZipDeflateReadSettings",
+										"preserveZipFileNameAsFolder": false
+									}
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings",
+									"copyBehavior": "PreserveHierarchy"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLS_Inbound_Zip",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_Unzip_Folder",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Load_Data_To_Bronze_Layer",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "Unzip_Inbound_Archive",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "LS_Snowflake_Bronze_Layer",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": {
+										"value": "CALL BRONZE.SP_LOAD_AND_VERIFY_BRONZE('@{pipeline().RunId}');",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00",
+							"treatDecimalAsString": false
+						}
+					},
+					{
+						"name": "Data_Load_From_Bronze_To_Silver",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "Load_Data_To_Bronze_Layer",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "LS_Snowflake_Silver_Gold_Layer",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": {
+										"value": "CALL SILVER.SP_PROCESS_SILVER_BATCH('@{pipeline().RunId}');",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00",
+							"treatDecimalAsString": false
+						}
+					},
+					{
+						"name": "Check_Duplicates",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "Data_Load_From_Bronze_To_Silver",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(int(json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found), 0)",
+								"type": "Expression"
+							},
+							"ifTrueActivities": [
+								{
+									"name": "Send_Duplicate_Records_Alert_Email",
+									"type": "WebActivity",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"method": "POST",
+										"headers": {},
+										"url": "https://prod-00.centralindia.logic.azure.com:443/workflows/cca0a927e7304581abcd55436a95579d/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=tNAsNaj34NIJi9baePvfV2bAwOJlU1fpFuUgJ8lsiUw",
+										"body": {
+											"subject": "Alert: Duplicate Records Quarantined in Silver (Customer Billing DEV)",
+											"message": "Pipeline Run ID @{pipeline().RunId} detected @{json(activity('Data_Load_From_Bronze_To_Silver').output.resultSets[0].rows[0].SP_PROCESS_SILVER_BATCH).duplicates_found} duplicate record(s). Please inspect SILVER.DUPLICATE_RECORDS_LOG in Snowflake."
+										}
+									}
+								}
+							]
+						}
+					},
+					{
+						"name": "Data_Load_Silver_To_Gold_Layer",
+						"type": "Script",
+						"dependsOn": [
+							{
+								"activity": "Check_Duplicates",
+								"dependencyConditions": [
+									"Completed"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"linkedServiceName": {
+							"referenceName": "LS_Snowflake_Silver_Gold_Layer",
+							"type": "LinkedServiceReference"
+						},
+						"typeProperties": {
+							"scripts": [
+								{
+									"type": "Query",
+									"text": {
+										"value": "CALL GOLD.SP_BUILD_GOLD_STAR_SCHEMA('@{pipeline().RunId}');",
+										"type": "Expression"
+									}
+								}
+							],
+							"scriptBlockExecutionTimeout": "02:00:00",
+							"treatDecimalAsString": false
+						}
+					},
+					{
+						"name": "Archive_Source_Files",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "Data_Load_Silver_To_Gold_Layer",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "BinarySource",
+								"storeSettings": {
+									"type": "AzureBlobFSReadSettings",
+									"recursive": true,
+									"wildcardFolderPath": "Inbound",
+									"wildcardFileName": "*",
+									"deleteFilesAfterCompletion": true
+								},
+								"formatSettings": {
+									"type": "BinaryReadSettings"
+								}
+							},
+							"sink": {
+								"type": "BinarySink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								}
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "DS_ADLS_Inbound_Source_Zip",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DS_ADLS_Archive_Folder",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "Clean_Unzip_Folder",
+						"type": "Delete",
+						"dependsOn": [
+							{
+								"activity": "Data_Load_Silver_To_Gold_Layer",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DS_ADLS_Unzip_Folder",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"logStorageSettings": {
+								"linkedServiceName": {
+									"referenceName": "LS_STORAGE_ACCOUNT",
+									"type": "LinkedServiceReference"
+								}
+							},
+							"enableLogging": true,
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"wildcardFileName": "*",
+								"enablePartitionDiscovery": false
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-11-27T07:30:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Inbound_Zip')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Unzip_Folder')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_Snowflake_Bronze_Layer')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_Snowflake_Silver_Gold_Layer')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Inbound_Source_Zip')]",
+				"[concat(variables('factoryId'), '/datasets/DS_ADLS_Archive_Folder')]",
+				"[concat(variables('factoryId'), '/linkedServices/LS_STORAGE_ACCOUNT')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Archive_Folder')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_STORAGE_ACCOUNT",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "Archive",
+						"fileSystem": "customer-billing"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_STORAGE_ACCOUNT')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Inbound_Source_Zip')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_STORAGE_ACCOUNT",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "Inbound",
+						"fileSystem": "customer-billing"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_STORAGE_ACCOUNT')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Inbound_Zip')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_STORAGE_ACCOUNT",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "Inbound",
+						"fileSystem": "customer-billing"
+					},
+					"compression": {
+						"type": "ZipDeflate"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_STORAGE_ACCOUNT')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/DS_ADLS_Unzip_Folder')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "LS_STORAGE_ACCOUNT",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "Binary",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"folderPath": "Unzip",
+						"fileSystem": "customer-billing"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_STORAGE_ACCOUNT')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_AzureKeyVault')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Connects ADF to DEV Key Vault using System-Assigned Managed Identity",
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('LS_AzureKeyVault_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_STORAGE_ACCOUNT')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('LS_STORAGE_ACCOUNT_properties_typeProperties_url')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_Snowflake_Bronze_Layer')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Snowflake connection scoped to INGEST_ROLE and INGEST_DEV_WH for Bronze loads",
+				"annotations": [],
+				"type": "SnowflakeV2",
+				"typeProperties": {
+					"authenticationType": "Basic",
+					"accountIdentifier": "XNFMVUB-OQ08173",
+					"user": "SA_ADF_CUSTOMER_BILLING_DEV",
+					"database": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_database')]",
+					"warehouse": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_warehouse')]",
+					"role": "[parameters('LS_Snowflake_Bronze_Layer_properties_typeProperties_role')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_AzureKeyVault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "sf-service-user-key"
+					},
+					"useUtcTimestamps": false
+				},
+				"version": "1.1"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureKeyVault')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/LS_Snowflake_Silver_Gold_Layer')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"description": "Snowflake connection scoped to TRANSFORM_ROLE and TRANSFORM_DEV_WH for Silver & Gold",
+				"annotations": [],
+				"type": "SnowflakeV2",
+				"typeProperties": {
+					"authenticationType": "Basic",
+					"accountIdentifier": "XNFMVUB-OQ08173",
+					"user": "SA_ADF_CUSTOMER_BILLING_DEV",
+					"database": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_database')]",
+					"warehouse": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_warehouse')]",
+					"role": "[parameters('LS_Snowflake_Silver_Gold_Layer_properties_typeProperties_role')]",
+					"password": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "LS_AzureKeyVault",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "sf-service-user-key"
+					},
+					"useUtcTimestamps": false
+				},
+				"version": "1.1"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/LS_AzureKeyVault')]"
+			]
+		}
+	]
+}
